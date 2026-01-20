@@ -19,7 +19,7 @@ exports.handler = async (event) => {
         model: "meta-llama/llama-3.3-70b-instruct:free",
         messages: [{ 
           role: "system", 
-          content: "Extract info to JSON: sender, receiver, tracking_number, items. Respond ONLY with raw JSON." 
+          content: "Extract info to JSON: sender, receiver, tracking_number, items. IMPORTANT: 'items' must be a single string of text, not a list." 
         }, { 
           role: "user", content: text 
         }]
@@ -27,15 +27,14 @@ exports.handler = async (event) => {
     });
 
     const aiData = await aiResponse.json();
-    
-    // Safety check for AI response
-    if (!aiData.choices || aiData.choices.length === 0) {
-      throw new Error("AI failed to return data. Check your OpenRouter key/balance.");
-    }
-
     let content = aiData.choices[0].message.content;
     content = content.replace(/```json/g, "").replace(/```/g, "").trim();
     const extracted = JSON.parse(content);
+
+    // DATA CLEANER: If the AI sends items as a list/object, turn it into text
+    const cleanItems = typeof extracted.items === 'object' 
+      ? JSON.stringify(extracted.items) 
+      : extracted.items;
 
     // 2. SAVE TO GOOGLE SHEETS
     const auth = new JWT({
@@ -48,17 +47,18 @@ exports.handler = async (event) => {
     await doc.loadInfo();
     const sheet = doc.sheetsByIndex[0];
 
+    // These keys must match your Row 1 exactly
     await sheet.addRow({
-      "Date": new Date().toLocaleString(),
-      "Sender": extracted.sender || "N/A",
-      "Receiver": extracted.receiver || "N/A",
-      "Tracking Number": extracted.tracking_number || "N/A",
-      "Description": extracted.items || "N/A"
+      "Date": new Date().toLocaleString('en-GB', { timeZone: 'Africa/Lagos' }),
+      "Sender": String(extracted.sender || "N/A"),
+      "Receiver": String(extracted.receiver || "N/A"),
+      "Tracking Number": String(extracted.tracking_number || "N/A"),
+      "Description": String(cleanItems || "N/A")
     });
 
     return {
       statusCode: 200,
-      body: JSON.stringify({ message: "Success! Row added.", data: extracted })
+      body: JSON.stringify({ message: "Logistics data saved!", data: extracted })
     };
 
   } catch (error) {
@@ -69,3 +69,4 @@ exports.handler = async (event) => {
     };
   }
 };
+// End of file: netlify/functions/analyze.js
