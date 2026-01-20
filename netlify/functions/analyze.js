@@ -70,6 +70,7 @@ exports.handler = async (event) => {
     console.error("DETAILED ERROR:", error.message);
     return {
       statusCode: 500,
+      headers: { "Content-Type": "application/json" }, // Added this line
       body: JSON.stringify({ error: error.message })
     };
   }
