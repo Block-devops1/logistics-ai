@@ -38,39 +38,38 @@
                 return;
             }
 
-            // 1. DATA CLEANING (Saves money and improves accuracy)
+            // Clean the text to save tokens
             let cleanText = textInput.trim()
-                .replace(/\s+/g, ' ')           // Remove extra spaces/tabs
-                .replace(/[\#\$\%\^\|_\*]/g, '') // Remove weird OCR symbols
-                .replace(/([\u2700-\u27BF]|[\uE000-\uF8FF]|\uD83C[\uDC00-\uDFFF]|\uD83D[\uDC00-\uDFFF]|[\u2011-\u26FF]|\uD83E[\uDC00-\uDFFF])/g, ''); // Remove Emojis
+                .replace(/\s+/g, ' ')           
+                .replace(/[\#\$\%\^\|_\*]/g, '');
 
-            outputDiv.innerText = "AI is thinking...";
+            outputDiv.innerText = "Processing & Saving to Sheets...";
 
             try {
-                // 2. SECURE CALL (Talks to your Netlify Function)
                 const response = await fetch("/.netlify/functions/analyze", {
                     method: "POST",
                     headers: { "Content-Type": "application/json" },
                     body: JSON.stringify({ text: cleanText })
                 });
 
-                const data = await response.json();
+                const result = await response.json();
 
-                // 3. ERROR HANDLING (The "Undefined" fix)
-                if (data.choices && data.choices[0]) {
-                    // Success! Show the AI result
-                    outputDiv.innerText = data.choices[0].message.content;
-                } else if (data.error) {
-                    // Show specific API error (like 'Invalid Key')
-                    outputDiv.innerText = "API Error: " + data.error.message;
+                // --- THE FIX IS HERE ---
+                if (response.ok) {
+                    // This shows the green success message
+                    outputDiv.style.borderLeft = "5px solid #28a745"; // Green border
+                    outputDiv.innerHTML = "✅ <b>Success!</b> Data saved to Google Sheets.<br><br>" + 
+                                        "<b>Extracted:</b><br>" + 
+                                        JSON.stringify(result.data, null, 2);
                 } else {
-                    outputDiv.innerText = "Error: The AI didn't return a valid answer. Check your Netlify Environment Variables.";
+                    // This shows the specific error message
+                    outputDiv.style.borderLeft = "5px solid #dc3545"; // Red border
+                    outputDiv.innerText = "Error: " + (result.error || "The server returned an error.");
                 }
 
             } catch (error) {
-                // This happens if the website can't find the function (common in VS Code local view)
-                outputDiv.innerText = "Connection Error: If you are in VS Code, this only works via 'netlify dev'. On the live site, check your deployment.";
-                console.error("Full Error Details:", error);
+                outputDiv.innerText = "Connection Error: Check your internet or Netlify deployment.";
+                console.error("Details:", error);
             }
         }
     </script>
