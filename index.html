@@ -5,14 +5,20 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Ericss AI Logistics Solutions</title>
     <style>
-        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; padding: 40px; background: #f0f2f5; display: flex; justify-content: center; }
-        .container { max-width: 700px; width: 100%; background: white; padding: 30px; border-radius: 12px; box-shadow: 0 10px 25px rgba(0,0,0,0.1); }
-        h2 { color: #333; margin-top: 0; border-bottom: 2px solid #007bff; padding-bottom: 10px; }
-        p { color: #666; font-size: 0.9rem; }
-        textarea { width: 100%; height: 180px; margin-top: 15px; padding: 15px; border: 1px solid #ddd; border-radius: 8px; font-family: monospace; box-sizing: border-box; resize: vertical; }
-        button { background: #007bff; color: white; border: none; padding: 12px 25px; border-radius: 6px; cursor: pointer; font-weight: bold; margin-top: 15px; transition: background 0.3s; }
-        button:hover { background: #0056b3; }
-        #output { margin-top: 25px; padding: 20px; background: #f8f9fa; border-left: 5px solid #007bff; border-radius: 6px; white-space: pre-wrap; font-family: monospace; color: #333; min-height: 50px; }
+        #output { 
+            margin-top: 25px; 
+            padding: 20px; 
+            background: #ffffff; 
+            border: 1px solid #ddd;
+            border-left: 5px solid #007bff; 
+            border-radius: 8px; 
+            font-family: 'Segoe UI', sans-serif; 
+            color: #333; 
+            line-height: 1.6;
+        }
+        .result-item { margin-bottom: 10px; border-bottom: 1px dotted #eee; padding-bottom: 5px; }
+        .result-label { font-weight: bold; color: #007bff; text-transform: uppercase; font-size: 0.8rem; display: block; }
+        .success-header { color: #28a745; font-weight: bold; margin-bottom: 15px; display: flex; align-items: center; gap: 10px; }
     </style>
 </head>
 <body>
@@ -34,42 +40,37 @@
             const textInput = document.getElementById('messyInput').value;
             
             if (!textInput) {
-                alert("Please paste some text first!");
+                alert("Please paste text first!");
                 return;
             }
 
-            // Clean the text to save tokens
-            let cleanText = textInput.trim()
-                .replace(/\s+/g, ' ')           
-                .replace(/[\#\$\%\^\|_\*]/g, '');
-
-            outputDiv.innerText = "Processing & Saving to Sheets...";
+            outputDiv.innerHTML = "<em>⏳ AI is organizing your logistics data...</em>";
 
             try {
                 const response = await fetch("/.netlify/functions/analyze", {
                     method: "POST",
                     headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify({ text: cleanText })
+                    body: JSON.stringify({ text: textInput })
                 });
 
                 const result = await response.json();
 
-                // --- THE FIX IS HERE ---
                 if (response.ok) {
-                    // This shows the green success message
-                    outputDiv.style.borderLeft = "5px solid #28a745"; // Green border
-                    outputDiv.innerHTML = "✅ <b>Success!</b> Data saved to Google Sheets.<br><br>" + 
-                                        "<b>Extracted:</b><br>" + 
-                                        JSON.stringify(result.data, null, 2);
+                    const d = result.data;
+                    // Create a clean "Report" look
+                    outputDiv.innerHTML = `
+                        <div class="success-header">✅ DATA SAVED TO GOOGLE SHEETS</div>
+                        <div class="result-item"><span class="result-label">Sender</span> ${d.sender || 'N/A'}</div>
+                        <div class="result-item"><span class="result-label">Receiver</span> ${d.receiver || 'N/A'}</div>
+                        <div class="result-item"><span class="result-label">Tracking Number</span> ${d.tracking_number || 'N/A'}</div>
+                        <div class="result-item"><span class="result-label">Description of Items</span> ${typeof d.items === 'object' ? JSON.stringify(d.items) : d.items}</div>
+                    `;
+                    outputDiv.style.borderLeft = "5px solid #28a745";
                 } else {
-                    // This shows the specific error message
-                    outputDiv.style.borderLeft = "5px solid #dc3545"; // Red border
-                    outputDiv.innerText = "Error: " + (result.error || "The server returned an error.");
+                    outputDiv.innerHTML = `<span style="color:red">❌ Error: ${result.error}</span>`;
                 }
-
             } catch (error) {
-                outputDiv.innerText = "Connection Error: Check your internet or Netlify deployment.";
-                console.error("Details:", error);
+                outputDiv.innerText = "Connection Error. Check Netlify logs.";
             }
         }
     </script>
