@@ -1,0 +1,83 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Ericss AI - Waybill Reader</title>
+    <style>
+        body { font-family: sans-serif; padding: 40px; background: #f4f7f6; }
+        .container { max-width: 600px; margin: auto; background: white; padding: 20px; border-radius: 8px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); }
+        textarea { width: 100%; height: 150px; margin-bottom: 10px; padding: 10px; }
+        button { background: #007bff; color: white; border: none; padding: 10px 20px; border-radius: 5px; cursor: pointer; }
+        #output { margin-top: 20px; padding: 15px; background: #e9ecef; border-radius: 5px; white-space: pre-wrap; }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <h2>Logistics Data Extractor</h2>
+    <p>Paste messy waybill or invoice text below:</p>
+    <textarea id="messyInput" placeholder="Copy-paste waybill info here..."></textarea>
+    <button onclick="analyzeData()">Extract Data (Free)</button>
+    
+    <div id="output">Results will appear here...</div>
+</div>
+
+<script>
+async function analyzeData() {
+    const outputDiv = document.getElementById('output');
+    const text = document.getElementById('messyInput').value;
+    
+    // Safety check
+    if(!text) { alert("Please paste some text first!"); return; }
+
+    // --- START OF NEW CLEANING CODE ---
+// 1. .trim() removes spaces from the very start and very end
+let cleanText = text.trim(); 
+
+// 2. This Regex removes "Excessive Whitespace" (turns 10 spaces into 1)
+// It also removes tabs and multiple new lines that waste money.
+cleanText = cleanText.replace(/\s+/g, ' '); 
+
+// 3. This Regex removes "Noise Characters" common in bad OCR scans
+// It removes symbols like #, $, %, ^, and weird vertical bars |
+cleanText = cleanText.replace(/[\#\$\%\^\|_\*]/g, '');
+
+// 4. (Optional) Remove emojis if your logistics data doesn't need them
+cleanText = cleanText.replace(/([\u2700-\u27BF]|[\uE000-\uF8FF]|\uD83C[\uDC00-\uDFFF]|\uD83D[\uDC00-\uDFFF]|[\u2011-\u26FF]|\uD83E[\uDC00-\uDFFF])/g, '');
+// --- END OF NEW CLEANING CODE ---
+
+// IMPORTANT: Change your fetch call to use 'cleanText' instead of 'text'
+// body: JSON.stringify({ ... "content": cleanText })
+
+    outputDiv.innerText = "Thinking...";
+
+    try {
+        const response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
+            method: "POST",
+            headers: {
+                "Authorization": "Bearer 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", // PASTE YOUR KEY HERE
+                "Content-Type": "application/json"
+            },
+            body: JSON.stringify({
+                "model": "meta-llama/llama-3.3-70b-instruct:free", // This version is FREE
+                "messages": [
+                    {
+                        "role": "system", 
+                        "content": "You are a logistics expert. Look at the messy text provided and extract: 1. Sender, 2. Receiver, 3. Item Weight, 4. Tracking Number. Format it as a clean list."
+                    },
+                    { "role": "user", "content": text }
+                ]
+            })
+        });
+
+        const data = await response.json();
+        outputDiv.innerText = data.choices[0].message.content;
+        
+    } catch (error) {
+        outputDiv.innerText = "Error: " + error.message;
+    }
+}
+</script>
+
+</body>
+</html>
