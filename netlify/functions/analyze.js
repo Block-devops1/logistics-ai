@@ -19,7 +19,7 @@ exports.handler = async (event) => {
         model: "meta-llama/llama-3.3-70b-instruct:free",
         messages: [{ 
           role: "system", 
-          content: "Extract info to JSON: sender, receiver, tracking_number, items. IMPORTANT: 'items' must be a single string of text, not a list." 
+          content: "You are a data extractor. Return ONLY raw JSON. No conversational text. No markdown. Required keys: sender, receiver, tracking_number, items." 
         }, { 
           role: "user", content: text 
         }]
@@ -28,10 +28,16 @@ exports.handler = async (event) => {
 
     const aiData = await aiResponse.json();
     let content = aiData.choices[0].message.content;
-    content = content.replace(/```json/g, "").replace(/```/g, "").trim();
-    const extracted = JSON.parse(content);
+    
+    // --- THE SUPER CLEANER ---
+    // This finds the first '{' and last '}' and cuts out everything else
+    const start = content.indexOf('{');
+    const end = content.lastIndexOf('}') + 1;
+    if (start === -1 || end === 0) throw new Error("AI failed to provide JSON data.");
+    const jsonString = content.substring(start, end);
+    const extracted = JSON.parse(jsonString);
 
-    // DATA CLEANER: If the AI sends items as a list/object, turn it into text
+    // Turn items list into a simple string for the sheet
     const cleanItems = typeof extracted.items === 'object' 
       ? JSON.stringify(extracted.items) 
       : extracted.items;
@@ -47,7 +53,6 @@ exports.handler = async (event) => {
     await doc.loadInfo();
     const sheet = doc.sheetsByIndex[0];
 
-    // These keys must match your Row 1 exactly
     await sheet.addRow({
       "Date": new Date().toLocaleString('en-GB', { timeZone: 'Africa/Lagos' }),
       "Sender": String(extracted.sender || "N/A"),
@@ -58,7 +63,7 @@ exports.handler = async (event) => {
 
     return {
       statusCode: 200,
-      body: JSON.stringify({ message: "Logistics data saved!", data: extracted })
+      body: JSON.stringify({ message: "Success! Sheet updated.", data: extracted })
     };
 
   } catch (error) {
@@ -69,4 +74,3 @@ exports.handler = async (event) => {
     };
   }
 };
-// End of file: netlify/functions/analyze.js
